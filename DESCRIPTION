@@ -1,0 +1,55 @@
+Package: rdladdadata
+Type: Package
+Title: Hämta data från myndigheter och organisationer till R
+Version: 0.2.0
+Authors@R: c(
+    person("Christian", "Lindell", email = "christian_lindell@yahoo.com", role = c("aut", "cre")),
+    person("Region Dalarna", role = "cph")
+    )
+Description: Funktioner som hämtar statistik och registerdata från bland
+    annat Socialstyrelsen, Brottsförebyggande rådet, Skolverket, RF-SISU,
+    1177, Kungliga biblioteket, NOBIL och SCB:s företagsregister.
+    Funktionerna kommer från skripten i repot hamta_data och hämtar data via
+    API:er, nedladdningsbara Excel-filer och webbskrapning.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Language: sv
+Roxygen: list(markdown = TRUE)
+Depends:
+    R (>= 4.1.0)
+Imports:
+    cli,
+    dplyr,
+    glue,
+    httr,
+    httr2 (>= 1.1.0),
+    jsonlite,
+    keyring,
+    progress,
+    purrr,
+    rdverktyg,
+    rdwebbskrapning,
+    readr,
+    readxl,
+    rlang,
+    rvest,
+    selenider,
+    sf,
+    stats,
+    stringr,
+    tibble,
+    tidyr,
+    tools,
+    utils,
+    xml2
+Remotes:
+    github::Region-Dalarna/rdpaket/packages/rdverktyg,
+    github::christianlindell/rdwebbskrapning,
+    github::Samhallsanalys/funcVGR
+Suggests:
+    funcVGR,
+    V8,
+    knitr,
+    rmarkdown
+VignetteBuilder: knitr
+Config/roxygen2/version: 8.1.1

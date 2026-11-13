@@ -1,0 +1,279 @@
+---
+title: "Kom igång med rdladdadata"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Kom igång med rdladdadata}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+# Alla exempel hämtar data från myndigheters och organisationers servrar,
+# och några kräver inloggning. Därför körs ingen kod när vignetten byggs.
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", eval = FALSE)
+
+# Läser exempelkoden från inst/examples så att vignetten alltid visar samma
+# exempel som hjälpsidorna
+exempel <- function(fn) {
+  fil <- file.path("..", "inst", "examples", paste0(fn, ".R"))
+  if (!file.exists(fil)) fil <- system.file("examples", paste0(fn, ".R"), package = "rdladdadata")
+  readLines(fil, encoding = "UTF-8")
+}
+```
+
+rdladdadata samlar funktioner som hämtar statistik och registerdata från
+bland annat Socialstyrelsen, Brottsförebyggande rådet (BRÅ), Skolverket,
+RF-SISU, 1177, Kungliga biblioteket, NOBIL och SCB:s företagsregister.
+Funktionerna kommer från skripten i repot hamta_data. De hämtar data på tre
+sätt: via öppna API:er, genom att ladda ner Excel-filer som läses in, och
+genom att styra Edge eller Chrome när en webbplats saknar både API och
+direkta nedladdningslänkar.
+
+Alla funktioner hämtar data från andras servrar. Därför körs ingen kod när
+vignetten byggs, och exemplen på hjälpsidorna körs bara i en interaktiv
+session. Tänk på belastningen hos dem du hämtar från: hämta det du behöver
+och spara resultatet, i stället för att hämta samma data om och om igen.
+
+```{r}
+library(rdladdadata)
+```
+
+## Det här behöver du
+
+- **Internet.** Kontrollera anslutningen med
+  `rdwebbskrapning::test_internetanslutning()`.
+- **Edge eller Chrome** för funktionerna som styr en webbläsare
+  (Socialstyrelsen, BRÅ:s kommunindikatorer och LOK-stöd per förening).
+  `rdwebbskrapning::testa_skrapmiljo()` går igenom förutsättningarna steg
+  för steg.
+- **En API-nyckel från NOBIL** för laddstationerna, sparad i keyring.
+- **En API-nyckel till SCB:s företagsregister** för `hamta_arbetsstallen()`
+  med flera, i miljövariabeln `SCB_AFR_API_KEY` eller i keyring.
+- **SCB:s certifikat** för sökpåver-API:t för `scb_`-funktionerna.
+- **VGR:s nätverk och paketen funcVGR och V8** för `hamta_bygdegardar()`.
+
+## Socialstyrelsen: ekonomiskt bistånd per månad
+
+Socialstyrelsens statistikdatabas för ekonomiskt bistånd per månad saknar
+API. De tre funktionerna styr därför Edge eller Chrome: de väljer alla
+kommuner, län, år och månader, exporterar till Excel och läser in filen.
+Alla tre har samma valfria parametrar: `headless` (dölj webbläsaren),
+`timeout` (hur länge sidan får ta på sig) och `verbose` (loggmeddelanden).
+De returnerar en tabell med en rad per region och månad, där månader som
+ännu saknar data har tagits bort.
+
+`hamta_ek_bistand_hushall_socialstyrelsen()` hämtar antal hushåll med
+ekonomiskt bistånd.
+
+```{r, code = exempel("hamta_ek_bistand_hushall_socialstyrelsen")}
+```
+
+`hamta_ek_bistand_individer_socialstyrelsen()` hämtar antal
+biståndsmottagare, uppdelat på inrikes och utrikes födda, från 2018.
+
+```{r, code = exempel("hamta_ek_bistand_individer_socialstyrelsen")}
+```
+
+`hamta_ek_bistand_sek_socialstyrelsen()` hämtar utbetalt bistånd i tusentals
+kronor, med en export per hushållsbakgrund. Misslyckas en export används de
+andra ändå.
+
+```{r, code = exempel("hamta_ek_bistand_sek_socialstyrelsen")}
+```
+
+## Brottsförebyggande rådet
+
+`hamta_bra_kommunindikatorer()` hämtar BRÅ:s indikatorer för kommuners
+lägesbild: anmälda brott och resultat från Nationella
+trygghetsundersökningen (NTU), en Excel-fil per kommun. Funktionen söker
+fram varje kommun på bra.se med en webbläsare. Med `region_vekt` väljer du
+kommuner, eller ett län för alla dess kommuner.
+
+```{r, code = exempel("hamta_bra_kommunindikatorer")}
+```
+
+`hamta_brott_ntu_lan_bra()` hämtar NTU per län och kön. Den hittar själv
+länken till BRÅ:s Excel-fil och returnerar en lista med en tabell per
+indikator.
+
+```{r, code = exempel("hamta_brott_ntu_lan_bra")}
+```
+
+## Skolverket
+
+`hamta_elever_grundskola_forskoleklass_skolverket()` hämtar antal elever per
+årskurs i grundskolan och förskoleklassen, per kommun och län och per
+huvudman. Filerna innehåller tidsserier, så funktionen hämtar bara det
+senaste året. Med de logiska parametrarna väljer du bort kommuner, län,
+grundskola eller förskoleklass.
+
+```{r, code = exempel("hamta_elever_grundskola_forskoleklass_skolverket")}
+```
+
+`hamta_skolenheter_api_skolverket()` hämtar skolenheter från Skolverkets
+skolenhetsregister, med adresser, skolformer, gymnasieprogram och huvudman.
+Den returnerar kartpunkter (`geografi`), och med `region_vekt` begränsar du
+hämtningen till län eller kommuner. Varje skolenhet kräver ett eget
+API-anrop, så hela landet tar lång tid.
+
+```{r, code = exempel("hamta_skolenheter_api_skolverket")}
+```
+
+## RF-SISU: LOK-stöd
+
+`hamta_lok_per_forening()` hämtar utbetalt LOK-stöd per förening för alla år
+som finns på rf.se och slår ihop filerna till en tabell. Länkarna tas fram
+med en webbläsare. Med `nedladdningsmapp` bestämmer du var Excel-filerna
+sparas.
+
+```{r, code = exempel("hamta_lok_per_forening")}
+```
+
+`hamta_lokstod_kommun_regso_kon_rf()` hämtar andelen barn och unga med
+LOK-stöd per kommun och RegSO, uppdelat på kön och ålder. Den har inga
+parametrar.
+
+```{r, code = exempel("hamta_lokstod_kommun_regso_kon_rf")}
+```
+
+## Platser som kartpunkter
+
+De här funktionerna returnerar sf-objekt med punkter i SWEREF 99 TM
+(EPSG:3006), som kan ritas på en karta eller kopplas till områden.
+
+`hamta_gis_bibliotek_kb()` hämtar bibliotek från Kungliga bibliotekets
+biblioteksdatabas, för ett län eller hela landet. Med
+`returnera_geo = FALSE` får du en vanlig tabell.
+
+```{r, code = exempel("hamta_gis_bibliotek_kb")}
+```
+
+`hamta_bygdegardar()` hämtar alla bygdegårdar i Sverige från
+bygdegardarna.se och kopplar dem till kommun och län. Kommunytorna hämtas
+från VGR:s geodatabas med funcVGR, så funktionen kräver VGR:s nätverk och
+paketen funcVGR och V8. Med `returnera_sf = FALSE` får du en vanlig tabell.
+
+```{r, code = exempel("hamta_bygdegardar")}
+```
+
+`hamta_laddstationer_nobil()` hämtar alla publika laddstationer i Sverige
+från NOBIL. Den kräver en kostnadsfri API-nyckel sparad i keyring under
+tjänsten `"nobil_laddstationer"`.
+
+```{r, code = exempel("hamta_laddstationer_nobil")}
+```
+
+`hamta_vardtyper_lista_1177()` listar vårdtyperna i 1177:s "Hitta vård", och
+`hamta_vardenheter_1177()` hämtar vårdenheterna i en region. Den obligatoriska
+parametern är `regionkod`, och med `vardtyp` väljer du en av vårdtyperna.
+1177 visar tio enheter per sida, så hämta helst en region åt gången.
+
+```{r, code = exempel("hamta_vardtyper_lista_1177")}
+```
+
+```{r, code = exempel("hamta_vardenheter_1177")}
+```
+
+## SCB:s företagsregister
+
+Det finns två grupper av funktioner för SCB:s företagsregister, en för vart
+och ett av SCB:s API:er.
+
+### Det nya API:t (apiafr.scb.se)
+
+Funktionerna kräver en API-nyckel, som läses från miljövariabeln
+`SCB_AFR_API_KEY` eller från keyring. API:et kan bara filtrera på en sak åt
+gången: region, näringsgren, storleksklass, omsättningsklass eller juridisk
+form. Börja gärna med `hamta_antal()`, som räknar utan att hämta och
+uppskattar hur lång tid en hämtning tar.
+
+```{r, code = exempel("hamta_antal")}
+```
+
+`hamta_arbetsstallen()` och `hamta_foretag()` hämtar alla sidor för ett urval
+och filtrerar på status i R efteråt. `regionkod` tar län, kommuner eller
+`"00"` för hela Sverige, och `full = TRUE` hämtar alla variabler för hela
+Sverige.
+
+```{r, code = exempel("hamta_arbetsstallen")}
+```
+
+```{r, code = exempel("hamta_foretag")}
+```
+
+`hamta_kodtabell()` hämtar koderna för en kodtabell. Det obligatoriska
+argumentet är kodtabellens namn.
+
+```{r, code = exempel("hamta_kodtabell")}
+```
+
+### Sökpåver-API:t
+
+`scb_`-funktionerna använder SCB:s äldre sökpåver-API, som kräver SCB:s
+certifikat i Windows certifikatförråd. `scb_hamta_cert()` kontrollerar att
+certifikatet finns.
+
+```{r, code = exempel("scb_hamta_cert")}
+```
+
+API:t lämnar högst 2 000 rader per anrop. `scb_hamta_foretag()` och
+`scb_hamta_arbetsstallen()` delar därför automatiskt upp stora urval, efter
+organisationsnummer, postnummer och kategorier, tills varje del ryms. Med
+`orgnr` hämtar du utvalda företag, och med `cache_path` kan en avbruten
+hämtning fortsätta där den slutade.
+
+```{r, code = exempel("scb_hamta_foretag")}
+```
+
+```{r, code = exempel("scb_hamta_arbetsstallen")}
+```
+
+`scb_hamta_arbetsstallen_med_foretag()` hämtar arbetsställen och sedan
+företagen som äger dem, och returnerar en lista med två tabeller.
+
+```{r, code = exempel("scb_hamta_arbetsstallen_med_foretag")}
+```
+
+`scb_rakna_foretag_i_kommuner()` och `scb_rakna_arbetsstallen_i_kommuner()`
+räknar per kommun utan att hämta. Den obligatoriska parametern är
+`kommunkoder`. `scb_kategorier_med_kodtabeller()` visar vilka kategorier och
+koder som går att filtrera på.
+
+```{r, code = exempel("scb_rakna_foretag_i_kommuner")}
+```
+
+```{r, code = exempel("scb_rakna_arbetsstallen_i_kommuner")}
+```
+
+```{r, code = exempel("scb_kategorier_med_kodtabeller")}
+```
+
+## Översikt över funktionerna
+
+| Funktion | Vad den gör | Obligatoriska parametrar |
+|---|---|---|
+| `hamta_ek_bistand_hushall_socialstyrelsen()` | Hämta antal hushåll med ekonomiskt bistånd per månad | – |
+| `hamta_ek_bistand_individer_socialstyrelsen()` | Hämta antal biståndsmottagare per månad | – |
+| `hamta_ek_bistand_sek_socialstyrelsen()` | Hämta utbetalt ekonomiskt bistånd per månad | – |
+| `hamta_bra_kommunindikatorer()` | Hämta BRÅ:s indikatorer för kommuners lägesbild | – |
+| `hamta_brott_ntu_lan_bra()` | Hämta NTU per län och kön | – |
+| `hamta_elever_grundskola_forskoleklass_skolverket()` | Hämta antal elever i grundskola och förskoleklass | – |
+| `hamta_skolenheter_api_skolverket()` | Hämta skolenheter från skolenhetsregistret | – |
+| `hamta_lok_per_forening()` | Hämta utbetalt LOK-stöd per förening | – |
+| `hamta_lokstod_kommun_regso_kon_rf()` | Hämta andel med LOK-stöd per kommun och RegSO | – |
+| `hamta_gis_bibliotek_kb()` | Hämta bibliotek från KB:s biblioteksdatabas | – |
+| `hamta_bygdegardar()` | Hämta bygdegårdar i Sverige | – |
+| `hamta_laddstationer_nobil()` | Hämta publika laddstationer från NOBIL | – |
+| `hamta_vardtyper_lista_1177()` | Lista vårdtyperna i 1177:s "Hitta vård" | – |
+| `hamta_vardenheter_1177()` | Hämta vårdenheter från 1177 som kartpunkter | `regionkod` |
+| `hamta_antal()` | Räkna arbetsställen eller juridiska enheter | – |
+| `hamta_arbetsstallen()` | Hämta arbetsställen (nya API:t) | – |
+| `hamta_foretag()` | Hämta juridiska enheter (nya API:t) | – |
+| `hamta_kodtabell()` | Hämta en kodtabell (nya API:t) | `kodtabell` |
+| `scb_hamta_cert()` | Hitta SCB-certifikatet för sökpåver-API:t | – |
+| `scb_hamta_foretag()` | Hämta företag (sökpåver-API:t) | – |
+| `scb_hamta_arbetsstallen()` | Hämta arbetsställen (sökpåver-API:t) | – |
+| `scb_hamta_arbetsstallen_med_foretag()` | Hämta arbetsställen och deras företag | – |
+| `scb_rakna_foretag_i_kommuner()` | Räkna företag per kommun | `kommunkoder` |
+| `scb_rakna_arbetsstallen_i_kommuner()` | Räkna arbetsställen per kommun | `kommunkoder` |
+| `scb_kategorier_med_kodtabeller()` | Hämta kategorier och koder (sökpåver-API:t) | – |
